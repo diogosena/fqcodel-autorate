@@ -1515,11 +1515,17 @@ set_shaper_rate()
 
 	if (( shaper_rate_kbps["${direction}"] != last_shaper_rate_kbps["${direction}"] ))
 	then
-		((output_cake_changes)) && log_msg "SHAPER" "tc qdisc change root dev ${interface[${direction}]} cake bandwidth ${shaper_rate_kbps[${direction}]}Kbit"
+
+		. /usr/lib/sqm/functions.sh
+		MTU=$(get_mtu ${interface[${direction}]})
+		BURST="$(get_burst ${MTU:-1514} ${shaper_rate_kbps[${direction}]} 1000)"
+		BURST=${BURST:-1514}
+ 
+		((output_cake_changes)) && log_msg "SHAPER" "tc qdisc change root dev ${interface[${direction}]} tbf rate ${shaper_rate_kbps[${direction}]}Kbit burst $BURST lat 300ms"
 
 		if ((adjust_shaper_rate["${direction}"]))
 		then
-			tc qdisc change root dev "${interface[${direction}]}" cake bandwidth "${shaper_rate_kbps[${direction}]}Kbit" 2> /dev/null
+			tc qdisc change root dev "${interface[${direction}]}" tbf rate "${shaper_rate_kbps[${direction}]}Kbit" burst "$BURST" lat 300ms 2> /dev/null
 		else
 			((output_cake_changes)) && log_msg "DEBUG" "adjust_${direction}_shaper_rate set to 0 in config, so skipping the corresponding tc qdisc change call."
 		fi
